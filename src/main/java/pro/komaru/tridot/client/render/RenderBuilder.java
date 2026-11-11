@@ -713,6 +713,7 @@ public class RenderBuilder{
         if(trailSegments.size() < 2){
             return this;
         }
+
         List<Vector4f> positions = trailSegments.stream().map(TrailPoint::getMatrixPosition).peek(p -> p.mul(pose)).toList();
         int count = trailSegments.size() - 1;
         float increment = 1.0F / count;
@@ -724,6 +725,7 @@ public class RenderBuilder{
             Vector4f next = positions.get(i + 1);
             points[i] = new TrailRenderPoint(current, Utils.Render.perpendicularTrailPoints(previous, next, width));
         }
+
         points[0] = new TrailRenderPoint(positions.get(0), Utils.Render.perpendicularTrailPoints(positions.get(0), positions.get(1), widthFunc.apply(0f)));
         points[count] = new TrailRenderPoint(positions.get(count), Utils.Render.perpendicularTrailPoints(positions.get(count - 1), positions.get(count), widthFunc.apply(1f)));
         return renderPoints(points, u0, v0, u1, v1, vfxOperator);
@@ -733,6 +735,7 @@ public class RenderBuilder{
         if(trailSegments.size() < 2){
             return this;
         }
+
         List<Vector4f> positions = trailSegments.stream().map(TrailPoint::getMatrixPosition).toList();
         int count = trailSegments.size() - 1;
         float increment = 1.0F / count;
@@ -744,6 +747,7 @@ public class RenderBuilder{
             Vector4f next = positions.get(i + 1);
             points[i] = new TrailRenderPoint(current, Utils.Render.perpendicularTrailPoints(previous, next, width));
         }
+
         points[0] = new TrailRenderPoint(positions.get(0), Utils.Render.perpendicularTrailPoints(positions.get(0), positions.get(1), widthFunc.apply(0f)));
         points[count] = new TrailRenderPoint(positions.get(count), Utils.Render.perpendicularTrailPoints(positions.get(count - 1), positions.get(count), widthFunc.apply(1f)));
         return renderPoints(points, u0, v0, u1, v1, vfxOperator);
@@ -764,6 +768,7 @@ public class RenderBuilder{
             int l = (int)Mth.lerp(i * increment, l1, l2);
             points[i].renderMid(getVertexConsumer(), this, u0, current, u1, current, r, g, b, a, l);
         }
+
         vfxOperator.accept(1f);
         points[count].renderEnd(getVertexConsumer(), this, u0, Mth.lerp((count) * increment, v0, v1), u1, v1, r2, g2, b2, a2, l2);
         return this;
