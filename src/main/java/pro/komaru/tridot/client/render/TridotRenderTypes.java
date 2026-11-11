@@ -201,14 +201,14 @@ public class TridotRenderTypes{
         public static void registerRenderTypes(FMLClientSetupEvent event){
             addAdditiveParticleRenderType(ADDITIVE_PARTICLE);
             addAdditiveParticleRenderType(ADDITIVE_BLOCK_PARTICLE);
-            addAdditiveParticleRenderType(ADDITIVE_PARTICLE_TEXTURE);
+            addAdditiveRenderType(ADDITIVE_PARTICLE_TEXTURE);
 
             addAdditiveRenderType(ADDITIVE_TEXTURE);
             addAdditiveRenderType(ADDITIVE);
 
             addTranslucentParticleRenderType(TRANSLUCENT_PARTICLE);
             addTranslucentParticleRenderType(TRANSLUCENT_BLOCK_PARTICLE);
-            addTranslucentParticleRenderType(TRANSLUCENT_PARTICLE_TEXTURE);
+            addTranslucentRenderType(TRANSLUCENT_PARTICLE_TEXTURE);
 
             addTranslucentRenderType(TRANSLUCENT_TEXTURE);
             addTranslucentRenderType(TRANSLUCENT);

@@ -36,6 +36,7 @@ public class TrailPointBuilder{
                 lerpedTrailPoints.add(trailPoints.get(i).lerp(trailPoints.get(i + 1), lerp));
             }
         }
+
         return lerpedTrailPoints;
     }
 

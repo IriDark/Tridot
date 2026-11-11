@@ -6,12 +6,10 @@ import pro.komaru.tridot.util.phys.Vec3f;
 
 public class TrailPoint{
     private final Vec3f position;
-    private final Vector4f matrixPosition;
     private int timeActive;
 
     public TrailPoint(Pos3 position, int timeActive){
         this.position = new Vec3f(position);
-        this.matrixPosition = new Vector4f(this.position.x, this.position.y, this.position.z, 1.0f);
         this.timeActive = timeActive;
     }
 
@@ -20,7 +18,7 @@ public class TrailPoint{
     }
 
     public Vector4f getMatrixPosition(){
-        Vec3f position = getPosition();
+        Vec3f position = this.getPosition();
         return new Vector4f(position.x, position.y, position.z, 1.0f);
     }
 
@@ -32,9 +30,13 @@ public class TrailPoint{
         return timeActive;
     }
 
+    public void setTimeActive(int timeActive){
+        this.timeActive = timeActive;
+    }
+
     public TrailPoint lerp(TrailPoint trailPoint, float delta){
-        Vec3f position = getPosition();
-        return new TrailPoint(position.lerp(trailPoint.position, delta), timeActive);
+        Vec3f position = this.getPosition();
+        return new TrailPoint(position.cpy().lerp(trailPoint.position, delta), timeActive);
     }
 
     public void tick(){
