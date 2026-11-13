@@ -183,6 +183,7 @@ modrinth {
     changelog = "API updates"
     versionType = "release"
     versionName = "${version}"
+    setGameVersions(["${minecraft_version}"])
     uploadFile = tasks.jar
 }
 
