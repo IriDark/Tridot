@@ -431,16 +431,21 @@ public class DotStyleEffects {
             GlyphInfo glyphInfo = fontset.getGlyphInfo(codePoint, font.filterFishyGlyphs);
             BakedGlyph glyph = style.isObfuscated() && codePoint != 32 ? fontset.getRandomGlyph(glyphInfo) : fontset.getGlyph(codePoint);
 
-            VertexConsumer consumer = self.bufferSource.getBuffer(glyph.renderType(self.mode));
+            Font.DisplayMode outlineMode = self.mode == Font.DisplayMode.POLYGON_OFFSET ? Font.DisplayMode.NORMAL : self.mode;
+            VertexConsumer consumer = self.bufferSource.getBuffer(glyph.renderType(outlineMode));
             Col col = outlineColor != null ? outlineColor : Col.black;
             float boldOffset = style.isBold() ? glyphInfo.getBoldOffset() : 0.0f;
             Vec2f[] directions = square ? Direction2.d8 : Direction2.d4;
-            self.pose.translate(0.0f, 0.0f, -0.03f);
+            float zOffset = self.pose.m22() < 0 ? 0.03f : -0.03f;
+            self.pose.translate(0.0f, 0.0f, zOffset);
             for (Vec2f dir : directions) {
                 font.renderChar(glyph, style.isBold(), style.isItalic(), boldOffset, self.x + dir.x, self.y + dir.y, self.pose, consumer, col.r, col.g, col.b, col.a, self.packedLightCoords);
             }
 
-            self.pose.translate(0.0f, 0.0f, 0.03f);
+            self.pose.translate(0.0f, 0.0f, -zOffset);
+            if (outlineMode != self.mode) {
+                self.bufferSource.getBuffer(glyph.renderType(self.mode));
+            }
         }
 
         @Override
