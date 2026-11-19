@@ -134,6 +134,56 @@ public class DotStyle extends Style {
         return this;
     }
 
+    @Override
+    public Style withColor(TextColor color) {
+        return this.color(color);
+    }
+
+    @Override
+    public Style withBold(Boolean value) {
+        return this.bold(value);
+    }
+
+    @Override
+    public Style withItalic(Boolean value) {
+        return this.italic(value);
+    }
+
+    @Override
+    public Style withUnderlined(Boolean value) {
+        return this.underlined(value);
+    }
+
+    @Override
+    public Style withStrikethrough(Boolean value) {
+        return this.strikethrough(value);
+    }
+
+    @Override
+    public Style withObfuscated(Boolean value) {
+        return this.obfuscated(value);
+    }
+
+    @Override
+    public Style withInsertion(String value) {
+        return this.insertion(value);
+    }
+
+    @Override
+    public Style withClickEvent(ClickEvent event) {
+        return this.click(event);
+    }
+
+    @Override
+    public Style withHoverEvent(HoverEvent event) {
+        return this.hover(event);
+    }
+
+    @Override
+    public Style withFont(ResourceLocation font) {
+        return this.font(font);
+    }
+
     public DotStyle effects() {
         this.effects.clear();
         return this;
