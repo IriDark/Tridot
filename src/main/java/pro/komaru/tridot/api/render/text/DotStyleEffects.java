@@ -443,9 +443,6 @@ public class DotStyleEffects {
             }
 
             self.pose.translate(0.0f, 0.0f, -zOffset);
-            if (outlineMode != self.mode) {
-                self.bufferSource.getBuffer(glyph.renderType(self.mode));
-            }
         }
 
         @Override
