@@ -3,6 +3,8 @@ package pro.komaru.tridot.client.gfx.particle.behavior;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.*;
 import net.minecraft.client.renderer.*;
+import net.minecraft.client.renderer.texture.*;
+import net.minecraft.resources.*;
 import net.minecraft.util.*;
 import pro.komaru.tridot.client.gfx.*;
 import pro.komaru.tridot.client.gfx.particle.*;
@@ -13,27 +15,51 @@ import pro.komaru.tridot.client.render.*;
 import pro.komaru.tridot.util.*;
 import pro.komaru.tridot.util.phys.*;
 
+import javax.annotation.*;
 import java.util.*;
 import java.util.function.*;
 
 public class TrailParticleBehavior extends ParticleBehavior implements ICustomBehaviorParticleRender{
+    private static final float MIN_SEGMENT_LENGTH = 1e-5f;
+    private static final float SPLIT_EPSILON = 1e-3f;
+
     public ColorParticleData colorData;
     public GenericParticleData transparencyData;
     public boolean secondColor;
     public int trailSize;
     Function<Float, Float> widthFunc;
+    @Nullable public List<ResourceLocation> segmentTextures;
+    @Nullable public ResourceLocation headSegmentTexture;
+    public float headSegmentLength = 0F;
+    @Nullable public ResourceLocation tailSegmentTexture;
 
     public TrailParticleBehavior(ColorParticleData colorData, GenericParticleData transparencyData, boolean secondColor, int trailSize, Function<Float, Float> widthFunc, SpinParticleData xSpinData, SpinParticleData ySpinData, SpinParticleData zSpinData, float xOffset, float yOffset, float zOffset, boolean firstSide, boolean secondSide, boolean camera, boolean xRotCam, boolean yRotCam){
+        this(colorData, transparencyData, secondColor, trailSize, widthFunc, xSpinData, ySpinData, zSpinData, xOffset, yOffset, zOffset, firstSide, secondSide, camera, xRotCam, yRotCam, null, null, 0F, null);
+    }
+
+    public TrailParticleBehavior(ColorParticleData colorData, GenericParticleData transparencyData, boolean secondColor, int trailSize, Function<Float, Float> widthFunc, SpinParticleData xSpinData, SpinParticleData ySpinData, SpinParticleData zSpinData, float xOffset, float yOffset, float zOffset, boolean firstSide, boolean secondSide, boolean camera, boolean xRotCam, boolean yRotCam, @Nullable List<ResourceLocation> segmentTextures, @Nullable ResourceLocation headSegmentTexture, float headSegmentLength, @Nullable ResourceLocation tailSegmentTexture){
         super(xSpinData, ySpinData, zSpinData, xOffset, yOffset, zOffset, firstSide, secondSide, camera, xRotCam, yRotCam);
         this.colorData = colorData;
         this.transparencyData = transparencyData;
         this.secondColor = secondColor;
         this.trailSize = trailSize;
         this.widthFunc = widthFunc;
+        this.segmentTextures = segmentTextures != null ? new ArrayList<>(segmentTextures) : null;
+        this.headSegmentTexture = headSegmentTexture;
+        this.headSegmentLength = headSegmentLength;
+        this.tailSegmentTexture = tailSegmentTexture;
     }
 
     public TrailParticleBehavior copy(){
-        return new TrailParticleBehavior(colorData, transparencyData, secondColor, trailSize, widthFunc, xSpinData, ySpinData, zSpinData, xOffset, yOffset, zOffset, firstSide, secondSide, camera, xRotCam, yRotCam);
+        return new TrailParticleBehavior(
+            colorData, transparencyData, secondColor, trailSize, widthFunc,
+            xSpinData, ySpinData, zSpinData, xOffset, yOffset, zOffset,
+            firstSide, secondSide, camera, xRotCam, yRotCam,
+            segmentTextures != null ? new ArrayList<>(segmentTextures) : null,
+            headSegmentTexture,
+            headSegmentLength,
+            tailSegmentTexture
+        );
     }
 
     public static TrailParticleBehaviorBuilder create(){
@@ -75,6 +101,40 @@ public class TrailParticleBehavior extends ParticleBehavior implements ICustomBe
 
         Col.RGBtoHSV(r1, g1, b1, component.hsv1);
         Col.RGBtoHSV(r2, g2, b2, component.hsv2);
+
+        initSegmentSprites(component);
+    }
+
+    protected void initSegmentSprites(TrailParticleBehaviorComponent component){
+        component.headSegmentSprite = null;
+        component.tailSegmentSprite = null;
+        component.segmentSprites = null;
+        boolean hasList = segmentTextures != null && !segmentTextures.isEmpty();
+        if(headSegmentTexture == null && tailSegmentTexture == null && !hasList){
+            component.hasSegmentOverrides = false;
+            return;
+        }
+
+        AbstractTexture atlasTex = Minecraft.getInstance().getTextureManager().getTexture(TextureAtlas.LOCATION_PARTICLES);
+        if(!(atlasTex instanceof TextureAtlas atlas)){
+            component.hasSegmentOverrides = false;
+            return;
+        }
+
+        if(headSegmentTexture != null){
+            component.headSegmentSprite = atlas.getSprite(headSegmentTexture);
+        }
+        if(tailSegmentTexture != null){
+            component.tailSegmentSprite = atlas.getSprite(tailSegmentTexture);
+        }
+        if(hasList){
+            component.segmentSprites = new TextureAtlasSprite[segmentTextures.size()];
+            for(int i = 0; i < segmentTextures.size(); i++){
+                ResourceLocation tex = segmentTextures.get(i);
+                component.segmentSprites[i] = tex != null ? atlas.getSprite(tex) : null;
+            }
+        }
+        component.hasSegmentOverrides = component.headSegmentSprite != null || component.tailSegmentSprite != null || component.segmentSprites != null;
     }
 
     public void pickColor(GenericParticle particle, float coeff){
@@ -147,6 +207,49 @@ public class TrailParticleBehavior extends ParticleBehavior implements ICustomBe
         }
 
         if(widthFunc == null) widthFunc = (f) -> f;
-        builder.renderTrail(poseStack, trail, (f) -> widthFunc.apply(f) * (particle.getSize() / 2f));
+
+        if(component.headSegmentSprite != null && trail.size() >= 2){
+            float headLen = headSegmentLength > 0f ? headSegmentLength : Math.max(0.01f, widthFunc.apply(1f) * (particle.getSize() / 2f));
+            applyHeadSegmentSplit(trail, headLen);
+        }
+
+        builder.renderTrail(poseStack, trail, (f) -> widthFunc.apply(f) * (particle.getSize() / 2f), component.hasSegmentOverrides ? component : null);
+    }
+
+    private static void applyHeadSegmentSplit(List<TrailPoint> trail, float targetLen){
+        if(trail.size() < 2 || targetLen <= 0f) return;
+        float accumulated = 0f;
+        for(int i = trail.size() - 2; i >= 0; i--){
+            Vec3f pPrev = trail.get(i).getPosition();
+            Vec3f pNext = trail.get(i + 1).getPosition();
+            float dx = pNext.x - pPrev.x;
+            float dy = pNext.y - pPrev.y;
+            float dz = pNext.z - pPrev.z;
+            float segLen = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if(accumulated + segLen >= targetLen && segLen > MIN_SEGMENT_LENGTH){
+                float need = targetLen - accumulated;
+                float t = Mth.clamp(need / segLen, 0f, 1f);
+                boolean snapToNext = t <= SPLIT_EPSILON;
+                boolean snapToPrev = t >= 1f - SPLIT_EPSILON;
+                int keepIndex = snapToNext ? i + 1 : i;
+
+                while(trail.size() - 1 > keepIndex + 1){
+                    trail.remove(trail.size() - 2);
+                }
+
+                if(!snapToNext && !snapToPrev){
+                    Vec3f neck = new Vec3f(
+                        Mth.lerp(t, pNext.x, pPrev.x),
+                        Mth.lerp(t, pNext.y, pPrev.y),
+                        Mth.lerp(t, pNext.z, pPrev.z)
+                    );
+                    trail.add(trail.size() - 1, new TrailPoint(neck));
+                }
+
+                return;
+            }
+
+            accumulated += segLen;
+        }
     }
 }
