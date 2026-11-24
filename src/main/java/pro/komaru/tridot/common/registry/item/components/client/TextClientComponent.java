@@ -16,10 +16,11 @@ import java.util.*;
 
 @OnlyIn(Dist.CLIENT)
 public class TextClientComponent implements ClientTooltipComponent{
-    public final FormattedCharSequence lines;
+    private final int maxChars = 200;
+    private final List<FormattedCharSequence> lines;
     private final int paddingTop;
     private TextClientComponent(MutableComponent text, int paddingTop) {
-        this.lines = text.getVisualOrderText();
+        this.lines = Language.getInstance().getVisualOrder(Minecraft.getInstance().font.getSplitter().splitLines(text, maxChars, text.getStyle()));
         this.paddingTop = paddingTop;
     }
 
@@ -29,15 +30,18 @@ public class TextClientComponent implements ClientTooltipComponent{
 
     @Override
     public int getHeight() {
-        return 10 + paddingTop;
+        return Math.max(0, (10 * lines.size()) + paddingTop);
     }
 
     @Override
     public int getWidth(Font pFont) {
         int width = 0;
-        int lineWidth = pFont.width(this.lines);
-        if (lineWidth > width) {
-            width = lineWidth;
+        for (final FormattedCharSequence line : lines) {
+            float scale = 1;
+            int lineWidth = (int) (pFont.width(line) * scale);
+            if (lineWidth > width) {
+                width = lineWidth;
+            }
         }
 
         return width;
@@ -45,6 +49,12 @@ public class TextClientComponent implements ClientTooltipComponent{
 
    public void renderText(Font pFont, int pMouseX, int pMouseY, Matrix4f pMatrix, MultiBufferSource.BufferSource pBufferSource) {
        int y = pMouseY + paddingTop;
-       pFont.drawInBatch(this.lines, (float)pMouseX, (float)y + 1, -1, true, pMatrix, pBufferSource, DisplayMode.NORMAL, 0, 15728880);
+       for (final FormattedCharSequence line : lines) {
+           float scale = 1;
+           Matrix4f scaled = new Matrix4f(pMatrix);
+           scaled.scale(scale, scale, 1);
+           pFont.drawInBatch(line, pMouseX / scale, (y / scale) + 1, -1, true, scaled, pBufferSource, Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
+           y += 9;
+       }
    }
 }
