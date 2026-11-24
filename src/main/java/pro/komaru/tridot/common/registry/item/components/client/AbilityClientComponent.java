@@ -19,14 +19,15 @@ import java.util.*;
 public class AbilityClientComponent implements ClientTooltipComponent{
     public final ResourceLocation bg = Tridot.ofTridot("textures/gui/tooltips/background.png");
     public final ResourceLocation icon;
+    public final int maxChars = 200;
     public final int iconMargin = 6;
     public final int iconSize;
     public final int paddingTop;
     public final int textPaddingTop;
 
-    public final FormattedCharSequence lines;
+    public final List<FormattedCharSequence> lines;
     public AbilityClientComponent(MutableComponent text, ResourceLocation icon, int iconSize, int paddingTop, int textPaddingTop) {
-        this.lines = text.getVisualOrderText();
+        this.lines = Language.getInstance().getVisualOrder(Minecraft.getInstance().font.getSplitter().splitLines(text, maxChars, text.getStyle()));
         this.iconSize = iconSize;
         this.paddingTop = paddingTop;
         this.textPaddingTop = textPaddingTop;
@@ -45,9 +46,12 @@ public class AbilityClientComponent implements ClientTooltipComponent{
     @Override
     public int getWidth(Font pFont) {
         int width = 0;
-        int lineWidth = iconSize + iconMargin + pFont.width(this.lines);
-        if (lineWidth > width) {
-            width = lineWidth;
+        for (final FormattedCharSequence line : lines) {
+            float scale = 1;
+            int lineWidth = iconSize + iconMargin + (int) (pFont.width(line) * scale);
+            if (lineWidth > width) {
+                width = lineWidth;
+            }
         }
 
         return width;
@@ -57,7 +61,13 @@ public class AbilityClientComponent implements ClientTooltipComponent{
     public void renderText(Font pFont, int pMouseX, int pMouseY, Matrix4f pMatrix, MultiBufferSource.BufferSource pBufferSource) {
         final int x = pMouseX + iconSize + 4;
         int y = pMouseY + textPaddingTop + paddingTop;
-        pFont.drawInBatch(this.lines, (float)x, (float)y + 1, -1, true, pMatrix, pBufferSource, DisplayMode.NORMAL, 0, 15728880);
+        for (final FormattedCharSequence line : lines) {
+            float scale = 1;
+            Matrix4f scaled = new Matrix4f(pMatrix);
+            scaled.scale(scale, scale, 1);
+            pFont.drawInBatch(line, x / scale, (y / scale) + 1, -1, true, scaled, pBufferSource, Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
+            y += 9;
+        }
     }
 
     @Override
