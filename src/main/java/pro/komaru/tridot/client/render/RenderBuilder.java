@@ -708,30 +708,26 @@ public class RenderBuilder{
         });
     }
 
+    public RenderBuilder renderTrail(PoseStack stack, List<TrailPoint> trailSegments, Function<Float, Float> widthFunc, @Nullable TrailSegmentSprite segmentSpriteFunc){
+        return renderTrail(stack.last().pose(), trailSegments, widthFunc, f -> {
+        }, segmentSpriteFunc);
+    }
+
     public RenderBuilder renderTrail(PoseStack stack, List<TrailPoint> trailSegments, Function<Float, Float> widthFunc, Consumer<Float> vfxOperator){
-        return renderTrail(stack.last().pose(), trailSegments, widthFunc, vfxOperator);
+        return renderTrail(stack.last().pose(), trailSegments, widthFunc, vfxOperator, null);
     }
 
     public RenderBuilder renderTrail(Matrix4f pose, List<TrailPoint> trailSegments, Function<Float, Float> widthFunc, Consumer<Float> vfxOperator){
+        return renderTrail(pose, trailSegments, widthFunc, vfxOperator, null);
+    }
+
+    public RenderBuilder renderTrail(Matrix4f pose, List<TrailPoint> trailSegments, Function<Float, Float> widthFunc, Consumer<Float> vfxOperator, @Nullable TrailSegmentSprite segmentSpriteFunc){
         if(trailSegments.size() < 2){
             return this;
         }
 
         List<Vector4f> positions = trailSegments.stream().map(TrailPoint::getMatrixPosition).peek(p -> p.mul(pose)).toList();
-        int count = trailSegments.size() - 1;
-        float increment = 1.0F / count;
-        TrailRenderPoint[] points = new TrailRenderPoint[trailSegments.size()];
-        for(int i = 1; i < count; i++){
-            float width = widthFunc.apply(increment * i);
-            Vector4f previous = positions.get(i - 1);
-            Vector4f current = positions.get(i);
-            Vector4f next = positions.get(i + 1);
-            points[i] = new TrailRenderPoint(current, Utils.Render.perpendicularTrailPoints(previous, next, width));
-        }
-
-        points[0] = new TrailRenderPoint(positions.get(0), Utils.Render.perpendicularTrailPoints(positions.get(0), positions.get(1), widthFunc.apply(0f)));
-        points[count] = new TrailRenderPoint(positions.get(count), Utils.Render.perpendicularTrailPoints(positions.get(count - 1), positions.get(count), widthFunc.apply(1f)));
-        return renderPoints(points, u0, v0, u1, v1, vfxOperator);
+        return renderPoints(buildTrailPoints(positions, widthFunc), u0, v0, u1, v1, vfxOperator, segmentSpriteFunc);
     }
 
     public RenderBuilder renderTrail(List<TrailPoint> trailSegments, Function<Float, Float> widthFunc, Consumer<Float> vfxOperator){
@@ -740,9 +736,13 @@ public class RenderBuilder{
         }
 
         List<Vector4f> positions = trailSegments.stream().map(TrailPoint::getMatrixPosition).toList();
-        int count = trailSegments.size() - 1;
+        return renderPoints(buildTrailPoints(positions, widthFunc), u0, v0, u1, v1, vfxOperator, null);
+    }
+
+    private TrailRenderPoint[] buildTrailPoints(List<Vector4f> positions, Function<Float, Float> widthFunc){
+        int count = positions.size() - 1;
         float increment = 1.0F / count;
-        TrailRenderPoint[] points = new TrailRenderPoint[trailSegments.size()];
+        TrailRenderPoint[] points = new TrailRenderPoint[positions.size()];
         for(int i = 1; i < count; i++){
             float width = widthFunc.apply(increment * i);
             Vector4f previous = positions.get(i - 1);
@@ -753,28 +753,81 @@ public class RenderBuilder{
 
         points[0] = new TrailRenderPoint(positions.get(0), Utils.Render.perpendicularTrailPoints(positions.get(0), positions.get(1), widthFunc.apply(0f)));
         points[count] = new TrailRenderPoint(positions.get(count), Utils.Render.perpendicularTrailPoints(positions.get(count - 1), positions.get(count), widthFunc.apply(1f)));
-        return renderPoints(points, u0, v0, u1, v1, vfxOperator);
+        return points;
     }
 
     public RenderBuilder renderPoints(TrailRenderPoint[] points, float u0, float v0, float u1, float v1, Consumer<Float> vfxOperator){
+        return renderPoints(points, u0, v0, u1, v1, vfxOperator, null);
+    }
+
+    public RenderBuilder renderPoints(TrailRenderPoint[] points, float u0, float v0, float u1, float v1, Consumer<Float> vfxOperator, @Nullable TrailSegmentSprite segmentSpriteFunc){
         int count = points.length - 1;
         float increment = 1.0F / count;
-        vfxOperator.accept(0f);
-        points[0].renderStart(getVertexConsumer(), this, u0, v0, u1, Mth.lerp(increment, v0, v1), r1, g1, b1, a1, l1);
-        for(int i = 1; i < count; i++){
-            float current = Mth.lerp(i * increment, v0, v1);
-            vfxOperator.accept(current);
-            float r = Mth.lerp(i * increment, r1, r2);
-            float g = Mth.lerp(i * increment, g1, g2);
-            float b = Mth.lerp(i * increment, b1, b2);
-            float a = Mth.lerp(i * increment, a1, a2);
-            int l = (int)Mth.lerp(i * increment, l1, l2);
-            points[i].renderMid(getVertexConsumer(), this, u0, current, u1, current, r, g, b, a, l);
+        if(segmentSpriteFunc == null){
+            vfxOperator.accept(0f);
+            points[0].renderStart(getVertexConsumer(), this, u0, v0, u1, Mth.lerp(increment, v0, v1), r1, g1, b1, a1, l1);
+            for(int i = 1; i < count; i++){
+                float current = Mth.lerp(i * increment, v0, v1);
+                vfxOperator.accept(current);
+                float r = Mth.lerp(i * increment, r1, r2);
+                float g = Mth.lerp(i * increment, g1, g2);
+                float b = Mth.lerp(i * increment, b1, b2);
+                float a = Mth.lerp(i * increment, a1, a2);
+                int l = (int)Mth.lerp(i * increment, l1, l2);
+                points[i].renderMid(getVertexConsumer(), this, u0, current, u1, current, r, g, b, a, l);
+            }
+
+            vfxOperator.accept(1f);
+            points[count].renderEnd(getVertexConsumer(), this, u0, Mth.lerp((count) * increment, v0, v1), u1, v1, r2, g2, b2, a2, l2);
+            return this;
         }
 
-        vfxOperator.accept(1f);
-        points[count].renderEnd(getVertexConsumer(), this, u0, Mth.lerp((count) * increment, v0, v1), u1, v1, r2, g2, b2, a2, l2);
+        VertexConsumer vc = getVertexConsumer();
+        int runStart = 0;
+        while(runStart < count){
+            TextureAtlasSprite sprite = segmentSpriteFunc.getSprite(runStart, count);
+            boolean flip = segmentSpriteFunc.flipV(runStart, count);
+            int runEnd = runStart;
+            while(runEnd + 1 < count && segmentSpriteFunc.getSprite(runEnd + 1, count) == sprite && segmentSpriteFunc.flipV(runEnd + 1, count) == flip){
+                runEnd++;
+            }
+
+            float su0 = sprite != null ? sprite.getU0() : u0;
+            float sv0 = sprite != null ? sprite.getV0() : v0;
+            float su1 = sprite != null ? sprite.getU1() : u1;
+            float sv1 = sprite != null ? sprite.getV1() : v1;
+            float runVStart = flip ? sv1 : sv0;
+            float runVEnd = flip ? sv0 : sv1;
+            int runLen = runEnd - runStart + 1;
+
+            for(int s = runStart; s <= runEnd; s++){
+                float t0 = s * increment;
+                float t1 = (s + 1) * increment;
+                float frac0 = (float)(s - runStart) / runLen;
+                float frac1 = (float)(s + 1 - runStart) / runLen;
+                float svA = Mth.lerp(frac0, runVStart, runVEnd);
+                float svB = Mth.lerp(frac1, runVStart, runVEnd);
+
+                vfxOperator.accept(Mth.lerp(t0, v0, v1));
+                points[s].renderStart(vc, this, su0, svA, su1, svA, Mth.lerp(t0, r1, r2), Mth.lerp(t0, g1, g2), Mth.lerp(t0, b1, b2), Mth.lerp(t0, a1, a2), (int)Mth.lerp(t0, l1, l2));
+                vfxOperator.accept(Mth.lerp(t1, v0, v1));
+                points[s + 1].renderEnd(vc, this, su0, svB, su1, svB, Mth.lerp(t1, r1, r2), Mth.lerp(t1, g1, g2), Mth.lerp(t1, b1, b2), Mth.lerp(t1, a1, a2), (int)Mth.lerp(t1, l1, l2));
+            }
+
+            runStart = runEnd + 1;
+        }
+
         return this;
+    }
+
+    @FunctionalInterface
+    public interface TrailSegmentSprite{
+        @Nullable
+        TextureAtlasSprite getSprite(int segmentIndex, int segmentCount);
+
+        default boolean flipV(int segmentIndex, int segmentCount){
+            return false;
+        }
     }
 
     public RenderBuilder renderDragon(PoseStack stack, float radius, float partialTicks, float randomF){
